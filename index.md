@@ -6,7 +6,7 @@
 
 <meta charset="UTF-8">
 
-<title>観測のアルカディア</title>
+<title>テスト「こんにちは」</title>
 
 </head>
 
