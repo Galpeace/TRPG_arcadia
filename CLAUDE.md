@@ -78,12 +78,21 @@ rules/rulebook_compressed.md — GMルールの要約。常に読む。
 | 固定NPC（六星・王族等）が登場 | `world_db/notable_npcs.md` |
 | 継続キャラクター（D） | `characters/[名前]/sheet.md` + `characters/[名前]/log.md` |
 | ルール詳細の確認が必要 | `rules/rulebook.md` |
+| **既存セッションの再開** | `sessions/YYYY-MM-DD/` 内の `plot.md` と全 `ud_*.md` と `sheet.md` |
+
+> **UDの分割収納：** セッションUDは `plot.md` のほか、必要に応じて
+> `ud_world.md`（場所・舞台）・`ud_quests.md`（クエスト）・`ud_npcs.md`（人物・勢力）
+> 等の `ud_*.md` に分割してよい。ファイル名は型ベースで固定し、固有名詞は
+> ファイル内の見出し（`## バーク農場` 等）で扱う。`plot.md` の冒頭に
+> UDインデックスを置き、どのファイルがあるかを示す。
+> セッション再開時、GMは `sessions/YYYY-MM-DD/` 内の `plot.md`・全 `ud_*.md`・
+> `sheet.md` をすべて読む。
 
 ### STEP 4：セッション準備
 
 情報が揃ったら、以下を行う。
 
-1. **plot.md の生成** — `sessions/YYYY-MM-DD/plot.md` に出力する。テンプレートは `templates/plot_template.md`。
+1. **plot.md の生成** — `sessions/YYYY-MM-DD/plot.md` に出力する。テンプレートは `templates/plot_template.md`。情報量が増えたら `ud_world.md`・`ud_quests.md`・`ud_npcs.md` 等に分割し、plot.md 冒頭にUDインデックスを置く。
 2. **GM占有情報の確定** — NPCの本当の目的・隠れた危険・タイムラインの進行フェーズを決める。プレイヤーに開示しない。
 3. **WQタイムラインの起動** — 該当するWQがある場合、現在フェーズを plot.md に記録する。
 4. **導入描写** — PCの所在理由を踏まえた章の導入を描写し、プレイを開始する。
@@ -172,8 +181,11 @@ rules/
   rulebook.md            — 詳細版（確認時のみ）
 
 sessions/YYYY-MM-DD/
-  plot.md                — GM作業台帳（セッション中に更新）
-  sheet.md               — キャラクターシート（セッション内に収納）
+  plot.md                — GM作業台帳＋UDインデックス（セッション中に更新）
+  ud_world.md            — 場所・舞台・痕跡（任意分割）
+  ud_quests.md           — 進行中クエスト（任意分割）
+  ud_npcs.md             — 人物・勢力・観測者候補（任意分割）
+  sheet.md               — キャラクターシート＝キャラUD（セッション内に収納）
   sheet_view.html        — キャラクタービューア・閲覧専用（任意生成）
   session_ud.md          — セッション終了時に出力
 
