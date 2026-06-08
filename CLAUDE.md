@@ -139,12 +139,21 @@ PCを保護しない。しかし不自然な不利も与えない。
    「キャラクターデータを保存しますか？
     保存する場合、characters/[名前]/ に sheet.md と log.md を作成します。」
 4. 保存する場合：
-   - characters/[名前]/sheet.md を最終状態で更新/作成する
-   - characters/[名前]/log.md にセッション記録を追記する
-   - characters/[名前]/sheet_view.html を生成する（任意）
+   - sessions/YYYY-MM-DD/sheet.md を最終状態で更新する（セッション内に収納）
+   - sessions/YYYY-MM-DD/sheet_view.html を生成する（任意）
      テンプレート：templates/character_view_template.html
      {{PLACEHOLDER}} を実データで置換して出力する。
+   - 継続キャラとしてアーカイブする場合は characters/[名前]/sheet.md と log.md も更新する
    ※ 保存データはUD性質を保つ。世界はこの記録を記憶しない。
+```
+
+---
+
+## ブランチ運用
+
+```
+mainブランチを直接編集する。フィーチャーブランチは使用しない。
+git push -u origin main で直接プッシュする。
 ```
 
 ---
@@ -164,10 +173,12 @@ rules/
 
 sessions/YYYY-MM-DD/
   plot.md                — GM作業台帳（セッション中に更新）
+  sheet.md               — キャラクターシート（セッション内に収納）
+  sheet_view.html        — キャラクタービューア・閲覧専用（任意生成）
   session_ud.md          — セッション終了時に出力
 
 characters/[名前]/
-  sheet.md               — 継続キャラのシート（任意保存）
+  sheet.md               — 継続キャラのシート（任意保存・アーカイブ用）
   log.md                 — プレイログ（任意保存）
   sheet_view.html        — キャラクタービューア・閲覧専用（任意生成）
 
