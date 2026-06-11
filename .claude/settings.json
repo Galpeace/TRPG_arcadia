@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -d ud ] && [ -n \"$(ls -A ud 2>/dev/null)\" ]; then echo '【Witnessed】保存済みセッション（/resume [日付] で再開、/session-start で新規開始）:'; ls -1 ud; else echo '【Witnessed】保存済みセッションなし。/session-start で新規セッションを開始できます。'; fi"
+          }
+        ]
+      }
+    ]
+  }
+}
