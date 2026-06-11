@@ -8,6 +8,7 @@
     python tools/state.py damage altea 7            # ダメージ
     python tools/state.py heal altea 5              # 回復
     python tools/state.py gold altea -200           # 所持金の増減
+    python tools/state.py attention altea +1        # 注視点の増減（上限5）
     python tools/state.py item add altea 松明 2     # アイテム追加
     python tools/state.py item remove altea 松明    # アイテム削除（1個）
     python tools/state.py set altea stats.dex 3     # 任意フィールド設定
@@ -51,6 +52,7 @@ def fmt_char(char_id: str, c: dict) -> str:
     return (
         f"{c.get('name', char_id)} ({char_id}): "
         f"HP {hp.get('current', '?')}/{hp.get('max', '?')}, "
+        f"注視点 {c.get('attention', 0)}, "
         f"所持金 {c.get('gold', 0)}G, 所持品 [{items or 'なし'}]"
     )
 
@@ -76,9 +78,12 @@ def cmd_new(args, party):
     chars[args.id] = {
         "name": args.name,
         "hp": {"current": args.hp, "max": args.hp},
+        "attention": 1,
         "gold": args.gold,
         "items": [],
         "stats": {},
+        "tags": [],
+        "titles": [],
     }
     save(PARTY, party)
     print(f"登録: {fmt_char(args.id, chars[args.id])}")
@@ -104,6 +109,24 @@ def cmd_gold(args, party):
     c["gold"] = after
     save(PARTY, party)
     print(f"{c['name']}: 所持金 {before}G → {after}G（{args.amount:+d}）")
+
+
+ATTENTION_MAX = 5
+
+
+def cmd_attention(args, party):
+    c = get_char(party, args.char)
+    before = c.get("attention", 0)
+    after = before + args.amount
+    if after < 0:
+        sys.exit(f"エラー: 注視点不足（現在 {before}、必要 {-args.amount}）")
+    capped = ""
+    if after > ATTENTION_MAX:
+        after = ATTENTION_MAX
+        capped = f"（上限{ATTENTION_MAX}で切り捨て）"
+    c["attention"] = after
+    save(PARTY, party)
+    print(f"{c['name']}: 注視点 {before} → {after}（{args.amount:+d}）{capped}")
 
 
 def cmd_item(args, party):
@@ -180,6 +203,10 @@ def main():
     p.add_argument("char")
     p.add_argument("amount", type=int)
 
+    p = sub.add_parser("attention", help="注視点増減（+1 / -1）")
+    p.add_argument("char")
+    p.add_argument("amount", type=int)
+
     p = sub.add_parser("item")
     p.add_argument("action", choices=["add", "remove"])
     p.add_argument("char")
@@ -209,6 +236,8 @@ def main():
         cmd_hp(args, party, +1)
     elif args.cmd == "gold":
         cmd_gold(args, party)
+    elif args.cmd == "attention":
+        cmd_attention(args, party)
     elif args.cmd == "item":
         cmd_item(args, party)
     elif args.cmd == "set":

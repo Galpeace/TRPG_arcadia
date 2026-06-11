@@ -16,13 +16,14 @@ MAX_FACES = 1000
 
 
 def roll_expr(expr: str):
-    """'2d6+3' のような式を振り、(合計, 内訳文字列) を返す。"""
+    """'2d6+3' のような式を振り、(合計, 内訳文字列, 出目リスト) を返す。"""
     s = expr.replace(" ", "").lower()
     if not re.fullmatch(r"[+-]?[0-9d]+([+-][0-9d]+)*", s):
         raise ValueError(f"式を解析できない: {expr}")
     tokens = re.findall(r"[+-]?[0-9d]+", s)
     total = 0
     parts = []
+    all_rolls = []
     for tok in tokens:
         sign = -1 if tok.startswith("-") else 1
         body = tok.lstrip("+-")
@@ -35,6 +36,7 @@ def roll_expr(expr: str):
             if not (2 <= faces <= MAX_FACES):
                 raise ValueError(f"面数は2〜{MAX_FACES}: {tok}")
             rolls = [secrets.randbelow(faces) + 1 for _ in range(n)]
+            all_rolls.extend(rolls)
             total += sign * sum(rolls)
             prefix = "-" if sign < 0 else ("+" if parts else "")
             parts.append(f"{prefix}{n}d{faces}{rolls}")
@@ -43,7 +45,7 @@ def roll_expr(expr: str):
             parts.append(f"{'-' if sign < 0 else '+'}{body}")
         else:
             raise ValueError(f"式を解析できない: {tok}")
-    return total, " ".join(parts)
+    return total, " ".join(parts), all_rolls
 
 
 def main():
@@ -54,7 +56,7 @@ def main():
 
     for expr in args.exprs:
         try:
-            total, detail = roll_expr(expr)
+            total, detail, _ = roll_expr(expr)
         except ValueError as e:
             print(f"エラー: {e}", file=sys.stderr)
             sys.exit(1)
