@@ -4,11 +4,11 @@
 使い方:
     python tools/state.py show                      # 全体表示
     python tools/state.py show altea                # 1キャラ表示
-    python tools/state.py new altea アルテア --hp 24            # キャラ登録
+    python tools/state.py new nezu チュー助 --rank 1            # キャラ登録（命脈は一律10）
     python tools/state.py damage altea 7            # ダメージ
     python tools/state.py heal altea 5              # 回復
     python tools/state.py gold altea -200           # 所持金の増減
-    python tools/state.py attention altea +1        # 注視点の増減（上限5）
+    python tools/state.py applause altea +1         # 喝采の増減（上限5）
     python tools/state.py item add altea 松明 2     # アイテム追加
     python tools/state.py item remove altea 松明    # アイテム削除（1個）
     python tools/state.py set altea stats.dex 3     # 任意フィールド設定
@@ -51,8 +51,9 @@ def fmt_char(char_id: str, c: dict) -> str:
     )
     return (
         f"{c.get('name', char_id)} ({char_id}): "
-        f"HP {hp.get('current', '?')}/{hp.get('max', '?')}, "
-        f"注視点 {c.get('attention', 0)}, "
+        f"格{c.get('rank', '?')}, "
+        f"命脈 {hp.get('current', '?')}/{hp.get('max', '?')}, "
+        f"喝采 {c.get('applause', 0)}, "
         f"所持金 {c.get('gold', 0)}G, 所持品 [{items or 'なし'}]"
     )
 
@@ -78,12 +79,12 @@ def cmd_new(args, party):
     chars[args.id] = {
         "name": args.name,
         "hp": {"current": args.hp, "max": args.hp},
-        "attention": 1,
+        "applause": 1,
+        "rank": args.rank,
         "gold": args.gold,
         "items": [],
-        "stats": {},
-        "tags": [],
-        "titles": [],
+        "essence": [],
+        "epithets": [],
     }
     save(PARTY, party)
     print(f"登録: {fmt_char(args.id, chars[args.id])}")
@@ -96,8 +97,8 @@ def cmd_hp(args, party, sign):
     hp["current"] = max(0, min(hp["max"], before + sign * args.amount))
     save(PARTY, party)
     word = "ダメージ" if sign < 0 else "回復"
-    note = "【戦闘不能】" if hp["current"] == 0 else ""
-    print(f"{c['name']}: {word} {args.amount} → HP {before} → {hp['current']} / {hp['max']} {note}")
+    note = "【命脈尽きる——舞台袖へ】" if hp["current"] == 0 else ""
+    print(f"{c['name']}: {word} {args.amount} → 命脈 {before} → {hp['current']} / {hp['max']} {note}")
 
 
 def cmd_gold(args, party):
@@ -114,19 +115,19 @@ def cmd_gold(args, party):
 ATTENTION_MAX = 5
 
 
-def cmd_attention(args, party):
+def cmd_applause(args, party):
     c = get_char(party, args.char)
-    before = c.get("attention", 0)
+    before = c.get("applause", 0)
     after = before + args.amount
     if after < 0:
-        sys.exit(f"エラー: 注視点不足（現在 {before}、必要 {-args.amount}）")
+        sys.exit(f"エラー: 喝采不足（現在 {before}、必要 {-args.amount}）")
     capped = ""
     if after > ATTENTION_MAX:
         after = ATTENTION_MAX
         capped = f"（上限{ATTENTION_MAX}で切り捨て）"
-    c["attention"] = after
+    c["applause"] = after
     save(PARTY, party)
-    print(f"{c['name']}: 注視点 {before} → {after}（{args.amount:+d}）{capped}")
+    print(f"{c['name']}: 喝采 {before} → {after}（{args.amount:+d}）{capped}")
 
 
 def cmd_item(args, party):
@@ -191,7 +192,8 @@ def main():
     p = sub.add_parser("new", help="キャラ登録")
     p.add_argument("id")
     p.add_argument("name")
-    p.add_argument("--hp", type=int, required=True)
+    p.add_argument("--hp", type=int, default=10, help="命脈（既定: 一律10）")
+    p.add_argument("--rank", type=int, default=2, help="格 1〜5（既定: 2＝並の大人）")
     p.add_argument("--gold", type=int, default=0)
 
     for name in ("damage", "heal"):
@@ -203,7 +205,7 @@ def main():
     p.add_argument("char")
     p.add_argument("amount", type=int)
 
-    p = sub.add_parser("attention", help="注視点増減（+1 / -1）")
+    p = sub.add_parser("applause", help="喝采増減（+1 / -1）")
     p.add_argument("char")
     p.add_argument("amount", type=int)
 
@@ -236,8 +238,8 @@ def main():
         cmd_hp(args, party, +1)
     elif args.cmd == "gold":
         cmd_gold(args, party)
-    elif args.cmd == "attention":
-        cmd_attention(args, party)
+    elif args.cmd == "applause":
+        cmd_applause(args, party)
     elif args.cmd == "item":
         cmd_item(args, party)
     elif args.cmd == "set":
