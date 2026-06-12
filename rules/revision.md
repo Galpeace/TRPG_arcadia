@@ -374,8 +374,8 @@ GM占有情報の核心は開示しない（既存規則どおり）。
 | 裁定エンジン | tools/check.py（2d6＋事情）、§1.2換算表 | **P1 実装済** |
 | 状態管理 | tools/state.py（負傷段階・状態異常・金・アイテム・フラグ） | **P1 実装済** |
 | 乱数・テーブル | tools/roll.py | **P1 実装済** |
-| 世界時計 | state/timelines.json ＋ tools/advance.py | P2 |
-| 噂台帳 | state/rumors.json ／ witnesses.json ＋ ツール | P2 |
+| 世界時計 | state/timelines.json ＋ tools/advance.py・world.py | **P2 実装済** |
+| 噂台帳 | state/rumors.json ／ witnesses.json ＋ tools/world.py | **P2 実装済** |
 | 封緘 | ud/[日付]/sealed/ ＋ gitコミット | P3（運用はP1から可） |
 | 年代記 | sessions/[日付]_chronicle.md（＋HTML装丁任意） | P3 |
 | 来歴・同行者・名分け台帳 | state/ 配下に追加 | P4 |

@@ -35,6 +35,12 @@ python tools/state.py new pc1 ヴェイル --gold 5000
 python tools/state.py wound pc1 中傷 / cond add pc1 毒
 python tools/state.py gold pc1 -200 / item add pc1 松明 2
 python tools/state.py flag set 橋_焼失 true
+python tools/world.py timeline add wq01 王冠の暗夜 --phases "緊張,準備,決行" --pace 7
+python tools/world.py rumor add r1 --about 路地の影 --summary 衛兵殺し \
+    --from ミレル村 --speed normal --route "カラム町:30,王都:210"
+python tools/world.py witness add w1 宿屋の親父 --saw 死体運び --place ミレル村
+python tools/world.py rep カラム町 路地の影 --infamy 2
+python tools/advance.py 7   # 早送り: 時計・タイムライン進行・噂の伝播と歪みを一括処理
 ```
 
 ## 周回の構造と儀式
