@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
-"""キャラクター・キャンペーン状態の読み書き。数値の増減は必ずここを通す。
+"""キャラクター・キャンペーン状態の読み書き。数値・状態の変更は必ずここを通す。
+
+Witnessed にHPは無い。負傷は段階（無傷/軽傷/中傷/重傷/瀕死/死亡）で管理する。
+state/ 配下はすべて UD であり、周回終了時に初期化される。
 
 使い方:
-    python tools/state.py show                      # 全体表示
-    python tools/state.py show altea                # 1キャラ表示
-    python tools/state.py new nezu チュー助 --rank 1            # キャラ登録（命脈は一律10）
-    python tools/state.py damage altea 7            # ダメージ
-    python tools/state.py heal altea 5              # 回復
-    python tools/state.py gold altea -200           # 所持金の増減
-    python tools/state.py applause altea +1         # 喝采の増減（上限5）
-    python tools/state.py item add altea 松明 2     # アイテム追加
-    python tools/state.py item remove altea 松明    # アイテム削除（1個）
-    python tools/state.py set altea stats.dex 3     # 任意フィールド設定
-    python tools/state.py flag set 廃坑_解放 true   # キャンペーンフラグ
-    python tools/state.py flag get 廃坑_解放
+    python tools/state.py show                       # 全体表示
+    python tools/state.py new pc1 ヴェイル --gold 5000
+    python tools/state.py wound pc1 中傷             # 負傷段階の設定
+    python tools/state.py cond add pc1 毒            # 状態異常
+    python tools/state.py cond remove pc1 毒
+    python tools/state.py gold pc1 -200
+    python tools/state.py item add pc1 松明 2
+    python tools/state.py item remove pc1 松明
+    python tools/state.py set pc1 識別名.路地の影 '{"悪名": 2}'   # 任意フィールド
+    python tools/state.py flag set 橋_焼失 true     # キャンペーンフラグ
+    python tools/state.py flag get 橋_焼失
 """
 import argparse
 import json
@@ -23,6 +25,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 PARTY = ROOT / "state" / "party.json"
 CAMPAIGN = ROOT / "state" / "campaign.json"
+
+WOUND_LEVELS = ["無傷", "軽傷", "中傷", "重傷", "瀕死", "死亡"]
+WOUND_PENALTY = {"無傷": 0, "軽傷": 0, "中傷": 1, "重傷": 2}
 
 
 def load(path: Path) -> dict:
@@ -43,17 +48,25 @@ def get_char(party: dict, char_id: str) -> dict:
     return chars[char_id]
 
 
+def wound_note(wound: str) -> str:
+    if wound == "瀕死":
+        return "（行動原則不可。未処置で場面が進むごとに維持判定 2d6 公開ロール、6以下で死亡）"
+    if wound == "死亡":
+        return "（死は正規の結末である）"
+    p = WOUND_PENALTY.get(wound, 0)
+    return f"（判定の不利{p}）" if p else ""
+
+
 def fmt_char(char_id: str, c: dict) -> str:
-    hp = c.get("hp", {})
     items = ", ".join(
         f"{i['name']}x{i['count']}" if i.get("count", 1) != 1 else i["name"]
         for i in c.get("items", [])
     )
+    conds = "・".join(c.get("conditions", []))
     return (
         f"{c.get('name', char_id)} ({char_id}): "
-        f"格{c.get('rank', '?')}, "
-        f"命脈 {hp.get('current', '?')}/{hp.get('max', '?')}, "
-        f"喝采 {c.get('applause', 0)}, "
+        f"負傷[{c.get('wound', '無傷')}]{wound_note(c.get('wound', '無傷'))}, "
+        f"状態[{conds or 'なし'}], "
         f"所持金 {c.get('gold', 0)}G, 所持品 [{items or 'なし'}]"
     )
 
@@ -64,9 +77,13 @@ def cmd_show(args, party):
     if args.char and args.char not in chars:
         sys.exit(f"エラー: キャラ '{args.char}' は未登録")
     if not targets:
-        print("キャラ未登録。`state.py new <id> <名前> --hp <最大HP>` で登録する。")
+        print("キャラ未登録。`state.py new <id> <名前> [--gold N]` で登録する。")
     for cid in targets:
         print(fmt_char(cid, chars[cid]))
+        extra = {k: v for k, v in chars[cid].items()
+                 if k not in ("name", "wound", "conditions", "gold", "items")}
+        if extra and args.char:
+            print(f"  その他: {json.dumps(extra, ensure_ascii=False)}")
     campaign = load(CAMPAIGN)
     if not args.char and campaign:
         print(f"--- キャンペーン: {json.dumps(campaign, ensure_ascii=False)}")
@@ -78,27 +95,42 @@ def cmd_new(args, party):
         sys.exit(f"エラー: '{args.id}' は登録済み")
     chars[args.id] = {
         "name": args.name,
-        "hp": {"current": args.hp, "max": args.hp},
-        "applause": 1,
-        "rank": args.rank,
+        "wound": "無傷",
+        "conditions": [],
         "gold": args.gold,
         "items": [],
-        "essence": [],
-        "epithets": [],
     }
     save(PARTY, party)
     print(f"登録: {fmt_char(args.id, chars[args.id])}")
 
 
-def cmd_hp(args, party, sign):
+def cmd_wound(args, party):
     c = get_char(party, args.char)
-    hp = c["hp"]
-    before = hp["current"]
-    hp["current"] = max(0, min(hp["max"], before + sign * args.amount))
+    if args.level not in WOUND_LEVELS:
+        sys.exit(f"エラー: 負傷段階は {'/'.join(WOUND_LEVELS)} のいずれか")
+    before = c.get("wound", "無傷")
+    if before == "死亡":
+        sys.exit("エラー: 死亡は回復不可（rulebook.md）。負傷段階の変更はできない")
+    c["wound"] = args.level
     save(PARTY, party)
-    word = "ダメージ" if sign < 0 else "回復"
-    note = "【命脈尽きる——舞台袖へ】" if hp["current"] == 0 else ""
-    print(f"{c['name']}: {word} {args.amount} → 命脈 {before} → {hp['current']} / {hp['max']} {note}")
+    print(f"{c['name']}: 負傷 {before} → {args.level} {wound_note(args.level)}")
+
+
+def cmd_cond(args, party):
+    c = get_char(party, args.char)
+    conds = c.setdefault("conditions", [])
+    if args.action == "add":
+        if args.name in conds:
+            sys.exit(f"エラー: 状態 '{args.name}' は付与済み")
+        conds.append(args.name)
+        verb = "付与"
+    else:
+        if args.name not in conds:
+            sys.exit(f"エラー: 状態 '{args.name}' は付いていない")
+        conds.remove(args.name)
+        verb = "解除"
+    save(PARTY, party)
+    print(f"{c['name']}: 状態異常 '{args.name}' を{verb} → [{('・'.join(conds)) or 'なし'}]")
 
 
 def cmd_gold(args, party):
@@ -110,24 +142,6 @@ def cmd_gold(args, party):
     c["gold"] = after
     save(PARTY, party)
     print(f"{c['name']}: 所持金 {before}G → {after}G（{args.amount:+d}）")
-
-
-ATTENTION_MAX = 5
-
-
-def cmd_applause(args, party):
-    c = get_char(party, args.char)
-    before = c.get("applause", 0)
-    after = before + args.amount
-    if after < 0:
-        sys.exit(f"エラー: 喝采不足（現在 {before}、必要 {-args.amount}）")
-    capped = ""
-    if after > ATTENTION_MAX:
-        after = ATTENTION_MAX
-        capped = f"（上限{ATTENTION_MAX}で切り捨て）"
-    c["applause"] = after
-    save(PARTY, party)
-    print(f"{c['name']}: 喝采 {before} → {after}（{args.amount:+d}）{capped}")
 
 
 def cmd_item(args, party):
@@ -164,7 +178,7 @@ def cmd_set(args, party):
         value = args.value
     node[keys[-1]] = value
     save(PARTY, party)
-    print(f"{c['name']}: {args.path} = {value}")
+    print(f"{c['name']}: {args.path} = {json.dumps(value, ensure_ascii=False)}")
 
 
 def cmd_flag(args):
@@ -192,20 +206,18 @@ def main():
     p = sub.add_parser("new", help="キャラ登録")
     p.add_argument("id")
     p.add_argument("name")
-    p.add_argument("--hp", type=int, default=10, help="命脈（既定: 一律10）")
-    p.add_argument("--rank", type=int, default=2, help="格 1〜5（既定: 2＝並の大人）")
     p.add_argument("--gold", type=int, default=0)
 
-    for name in ("damage", "heal"):
-        p = sub.add_parser(name)
-        p.add_argument("char")
-        p.add_argument("amount", type=int)
+    p = sub.add_parser("wound", help="負傷段階の設定")
+    p.add_argument("char")
+    p.add_argument("level", help="/".join(WOUND_LEVELS))
+
+    p = sub.add_parser("cond", help="状態異常の付与/解除")
+    p.add_argument("action", choices=["add", "remove"])
+    p.add_argument("char")
+    p.add_argument("name")
 
     p = sub.add_parser("gold", help="所持金増減（+500 / -200）")
-    p.add_argument("char")
-    p.add_argument("amount", type=int)
-
-    p = sub.add_parser("applause", help="喝采増減（+1 / -1）")
     p.add_argument("char")
     p.add_argument("amount", type=int)
 
@@ -217,7 +229,7 @@ def main():
 
     p = sub.add_parser("set", help="任意フィールド設定")
     p.add_argument("char")
-    p.add_argument("path", help="例: stats.dex")
+    p.add_argument("path", help="例: 識別名.路地の影")
     p.add_argument("value")
 
     p = sub.add_parser("flag")
@@ -228,24 +240,14 @@ def main():
     args = ap.parse_args()
     party = load(PARTY)
 
-    if args.cmd == "show":
-        cmd_show(args, party)
-    elif args.cmd == "new":
-        cmd_new(args, party)
-    elif args.cmd == "damage":
-        cmd_hp(args, party, -1)
-    elif args.cmd == "heal":
-        cmd_hp(args, party, +1)
-    elif args.cmd == "gold":
-        cmd_gold(args, party)
-    elif args.cmd == "applause":
-        cmd_applause(args, party)
-    elif args.cmd == "item":
-        cmd_item(args, party)
-    elif args.cmd == "set":
-        cmd_set(args, party)
-    elif args.cmd == "flag":
+    dispatch = {
+        "show": cmd_show, "new": cmd_new, "wound": cmd_wound, "cond": cmd_cond,
+        "gold": cmd_gold, "item": cmd_item, "set": cmd_set,
+    }
+    if args.cmd == "flag":
         cmd_flag(args)
+    else:
+        dispatch[args.cmd](args, party)
 
 
 if __name__ == "__main__":
